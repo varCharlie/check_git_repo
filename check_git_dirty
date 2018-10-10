@@ -1,0 +1,49 @@
+#!/usr/bin/env bash 
+set +x
+usage() {
+cat >&2 <<-EOF
+		Usage: $0 --repo REPO --dir DIR
+
+		Optional Arguments
+			-d --dir	Base directory for search
+
+		Required Arguments:
+			-r --repo	Repository to search for
+		EOF
+    exit $1
+}
+
+if [ $# -eq 0 ]; then
+	usage 1
+fi
+while [ ${#} -gt 0 ]; do
+    case ${1} in
+        -r|--repo)
+            shift
+            declare repo=${1}
+            shift ;;
+        -r=*|--repo=*)
+            declare repo=${1#*=}
+            shift ;;
+        -d|--dir)
+            shift
+            declare dir=${1}
+            shift ;;
+        -d=*|--dir=*)
+            declare dir=${1#*=}
+            shift ;;
+        -h|--help)
+            usage 0 ;;
+        *)
+            echo "Invalid argument: ${1}" >&2
+            usage 1
+            shift ;;
+    esac
+done
+
+if [ ${EUID} -ne 0 ]; then
+    echo "Must be root!"
+fi
+
+find ${dir} -type d -name ${repo} -exec ./check_git_st {} \;
+

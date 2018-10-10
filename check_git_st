@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+import shlex
+import sys
+import subprocess
+import os
+import re
+
+def parse_git_output(output, path):
+    status_map = {
+        re.compile('^\?\?$'): 'untracked',
+        re.compile('^\!\!$'): 'ignored',
+        re.compile('^UU$'): 'unmerged, both modified',
+        re.compile('^AA$'): 'unmerged, both added',
+        re.compile('^DU$'): 'unmerged, deleted by us',
+        re.compile('^UA$'): 'unmerged, added  upstream',
+        re.compile('^UD$'): 'unmerged, deleted upstream',
+        re.compile('^AU$'): 'unmerged, added by us',
+        re.compile('^DD$'): 'unmerged, both deleted',
+        re.compile('^[ MARC]D$'): 'deleted in work tree',
+        re.compile('^[ MARC]M$'): 'work tree changed since index',
+        re.compile('^[MARC] $'): 'index and work tree matches',
+        re.compile('^C[ MD]$'): 'copied in index',
+        re.compile('^R[ MD]$'): 'renamed in index',
+        re.compile('^D[ M]$'): 'Deleted from index',
+        re.compile('^A[ MD]$'): 'added to index',
+        re.compile('^M[ MD]$'): 'updated in index',
+        re.compile('^ [MD]$'): 'not updated',
+    }
+    matches = {}
+    lines = output.strip().split('\n')
+    for line in lines:
+        # below is equivalent to:
+        # code, target = line[:2], line[4:]
+        code, _, target = line.partition(' ')
+        for status_code, detail in status_map.iteritems():
+            match = status_code.match(code)
+            if match:
+                matches[detail] = target
+    return matches
+
+def is_git_repository(path):
+    if os.path.exists(os.path.join(path, '.git')):
+        return True
+    else:
+        return False
+
+def main():
+    try:
+        path = sys.argv[1]
+        if not is_git_repository(path):
+            sys.exit(0)
+
+    except IndexError:
+        sys.stderr.write("No argument supplied\n")
+        sys.exit(1)
+
+    try:
+        os.chdir(path)
+    except:
+        sys.stderr.write("Couldn't cd to {0}\n")
+        if os.geteuid() != 0:
+            sys.stderr.write("Try running as root\n")
+        else:
+            sys.stderr.write("Effective User = Root\n")
+
+    arguments = {'args': shlex.split('git status --porcelain'),
+                 'stdout': subprocess.PIPE,
+                 'stderr': subprocess.PIPE}
+    git_st_proc = subprocess.Popen(**arguments)
+    git_output = git_st_proc.stdout.read()
+    return_code = git_st_proc.wait()
+    if return_code != 0:
+        sys.stderr.write("Not in a git repository")
+        sys.stderr.write(git_st_proc.stdout.read())
+        exit(return_code)
+    else:
+        if git_output:
+            matches = parse_git_output(git_output, path)
+            if matches:
+                sys.stdout.write('{0} is dirty:\n'.format(path))
+                for detail, target in matches.iteritems():
+                    sys.stdout.write('\t{0}: {1}\n'.format(detail, target))
+
+
+if __name__ == '__main__':
+    main()
