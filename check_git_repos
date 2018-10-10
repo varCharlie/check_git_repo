@@ -4,11 +4,9 @@ usage() {
 cat >&2 <<-EOF
 		Usage: $0 --repo REPO --dir DIR
 
-		Optional Arguments
-			-d --dir	Base directory for search
-
 		Required Arguments:
 			-r --repo	Repository to search for
+			-d --dir	Base directory for search
 		EOF
     exit $1
 }
@@ -45,5 +43,5 @@ if [ ${EUID} -ne 0 ]; then
     echo "Must be root!"
 fi
 
-find ${dir} -type d -name ${repo} -exec ./check_git_st {} \;
+find ${dir} -type d -name ${repo} -exec ./check_git_repo {} \;
 
