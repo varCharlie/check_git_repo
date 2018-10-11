@@ -54,7 +54,9 @@ def main():
     try:
         path = sys.argv[1]
         if not is_git_repository(path):
-            err_out("Not in a git repository")
+            # don't output anything, this clutters the screen
+            # turns out `find` finds lots of dirs that aren't repositories
+            sys.exit(128)
 
     except IndexError:
         err_out("No argument provided.\nUsage: {0} GIT_PATH".format(sys.argv[0]))
