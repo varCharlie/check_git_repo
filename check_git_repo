@@ -5,6 +5,12 @@ import subprocess
 import os
 import re
 
+def err_out(error, exit_status=1, no_exit=False):
+    sys.stdout.write("{0}\n".format(error.rstrip()))
+    if no_exit:
+        return 0
+    sys.exit(exit_status)
+
 def parse_git_output(output, path):
     status_map = {
         re.compile('^\?\?$'): 'untracked',
@@ -48,20 +54,15 @@ def main():
     try:
         path = sys.argv[1]
         if not is_git_repository(path):
-            sys.exit(0)
+            err_out("Not in a git repository")
 
     except IndexError:
-        sys.stderr.write("No argument supplied\n")
-        sys.exit(1)
+        err_out("No argument provided.\nUsage: {0} GIT_PATH".format(sys.argv[0]))
 
     try:
         os.chdir(path)
-    except:
-        sys.stderr.write("Couldn't cd to {0}\n")
-        if os.geteuid() != 0:
-            sys.stderr.write("Try running as root\n")
-        else:
-            sys.stderr.write("Effective User = Root\n")
+    except OSError:
+        err_out("Couldn't cd to directory")
 
     arguments = {'args': shlex.split('git status --porcelain'),
                  'stdout': subprocess.PIPE,
@@ -70,9 +71,7 @@ def main():
     git_output = git_st_proc.stdout.read()
     return_code = git_st_proc.wait()
     if return_code != 0:
-        sys.stderr.write("Not in a git repository")
-        sys.stderr.write(git_st_proc.stdout.read())
-        exit(return_code)
+        err_out("Git returned {0}\n".format(return_code) + git_st_proc.stderr.read())
     else:
         if git_output:
             matches = parse_git_output(git_output, path)
