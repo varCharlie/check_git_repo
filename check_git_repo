@@ -5,14 +5,29 @@ import subprocess
 import os
 import re
 
+def repr_git_info(git_info):
+    output = '''\
+  Local: {local}
+  Remote: {remote}\n'''
+    if git_info.get('ahead'):
+        output += '''\
+  Ahead: {ahead} commits\n'''
+    if git_info.get('behind'):
+        output += '''\
+  Behind: {behind} commits\n'''
+    return output.format(**git_info)
+
+
 def err_out(error, exit_status=1, no_exit=False):
     sys.stdout.write("{0}\n".format(error.rstrip()))
     if no_exit:
         return 0
     sys.exit(exit_status)
 
+
 def parse_git_output(output, path):
     status_map = {
+        re.compile('^##$'): 'branch',
         re.compile('^\?\?$'): 'untracked',
         re.compile('^\!\!$'): 'ignored',
         re.compile('^UU$'): 'unmerged, both modified',
@@ -32,17 +47,25 @@ def parse_git_output(output, path):
         re.compile('^M[ MD]$'): 'updated in index',
         re.compile('^ [MD]$'): 'not updated',
     }
-    matches = {}
+    matches, git_info = {}, {}
     lines = output.strip().split('\n')
+    branch_regex = re.compile('(?P<local>[\w/-]+)\.\.\.(?P<remote>[\w/-]+)')
+    tracking_regex = re.compile('\[ahead (?P<ahead>[0-9]+)\]|\[behind (?P<behind>[0-9]+)\]')
     for line in lines:
-        # below is equivalent to:
-        # code, target = line[:2], line[4:]
         code, _, target = line.partition(' ')
         for status_code, detail in status_map.iteritems():
             match = status_code.match(code)
             if match:
+                if detail == 'branch':
+                    branch_match = branch_regex.search(target)
+                    if branch_match:
+                        git_info.update(branch_match.groupdict())
+                    tracking_match = tracking_regex.search(target)
+                    if tracking_match:
+                        git_info.update(tracking_match.groupdict())
+                    continue
                 matches[detail] = target
-    return matches
+    return git_info, matches
 
 def is_git_repository(path):
     if os.path.exists(os.path.join(path, '.git')):
@@ -66,7 +89,7 @@ def main():
     except OSError:
         err_out("Couldn't cd to directory")
 
-    arguments = {'args': shlex.split('git status --porcelain'),
+    arguments = {'args': shlex.split('git status -b --porcelain'),
                  'stdout': subprocess.PIPE,
                  'stderr': subprocess.PIPE}
     git_st_proc = subprocess.Popen(**arguments)
@@ -76,9 +99,13 @@ def main():
         err_out("Git returned {0}\n".format(return_code) + git_st_proc.stderr.read())
     else:
         if git_output:
-            matches = parse_git_output(git_output, path)
-            if matches:
+            git_info, matches = parse_git_output(git_output, path)
+            if not matches and any([git_info.get(x,None) for x in ('ahead', 'behind')]):
+                sys.stdout.write('{0} is out of date:\n'.format(path))
+                sys.stdout.write(repr_git_info(git_info))
+            elif matches and git_info:
                 sys.stdout.write('{0} is dirty:\n'.format(path))
+                sys.stdout.write(repr_git_info(git_info))
                 for detail, target in matches.iteritems():
                     sys.stdout.write('\t{0}: {1}\n'.format(detail, target))
 
