@@ -41,6 +41,7 @@ done
 
 if [ ${EUID} -ne 0 ]; then
     echo "Must be root!"
+    exit 1
 fi
 
 find ${dir} -type d -name ${repo} -exec ./check_git_repo {} \; 2>/dev/null
