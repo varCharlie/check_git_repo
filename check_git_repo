@@ -25,7 +25,7 @@ def err_out(error, exit_status=1, no_exit=False):
     sys.exit(exit_status)
 
 
-def parse_git_output(output, path):
+def parse_git_output(output, path, check_behind_commits=False):
     status_map = {
         re.compile('^##$'): 'branch',
         re.compile('^\?\?$'): 'untracked',
@@ -65,6 +65,11 @@ def parse_git_output(output, path):
                         git_info.update(tracking_match.groupdict())
                     continue
                 matches[detail] = target
+    if not check_behind_commits:
+        try:
+            git_info.pop('behind')
+        except KeyError:
+            pass
     return git_info, matches
 
 def is_git_repository(path):
@@ -75,7 +80,11 @@ def is_git_repository(path):
 
 def main():
     try:
-        path = sys.argv[1]
+        argparser = argparse.ArgumentParser()
+        argparser.add_argument('directory', required=True, help='Path to a git repository')
+        argparser.add_argument('--behind', default=False, help='Check if repository is behind origin')
+        args =argparser.parse_args()
+        path = args.directory
         if not is_git_repository(path):
             # don't output anything, this clutters the screen
             # turns out `find` finds lots of dirs that aren't repositories
@@ -99,7 +108,7 @@ def main():
         err_out("Git returned {0}\n".format(return_code) + git_st_proc.stderr.read())
     else:
         if git_output:
-            git_info, matches = parse_git_output(git_output, path)
+            git_info, matches = parse_git_output(git_output, path, check_behind_commits=args.behind)
             if not matches and any([git_info.get(x,None) for x in ('ahead', 'behind')]):
                 sys.stdout.write('{0} is out of date:\n'.format(path))
                 sys.stdout.write(repr_git_info(git_info))
