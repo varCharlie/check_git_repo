@@ -65,7 +65,10 @@ def parse_git_output(output, path, check_behind_commits=False):
                     if tracking_match:
                         git_info.update(tracking_match.groupdict())
                     continue
-                matches[detail] = target
+                if detail == 'untracked' and matches.get(detail, None):
+                    matches[detail] = "{0}\n\t{1}".format(target, matches[detail])
+                else:
+                    matches[detail] = target
     if not check_behind_commits:
         try:
             git_info.pop('behind')
@@ -82,7 +85,7 @@ def is_git_repository(path):
 def main():
     try:
         argparser = argparse.ArgumentParser()
-        argparser.add_argument('directory', required=True, help='Path to a git repository')
+        argparser.add_argument('directory', help='Path to a git repository')
         argparser.add_argument('--behind', default=False, help='Check if repository is behind origin')
         args =argparser.parse_args()
         path = args.directory
@@ -117,7 +120,7 @@ def main():
                 sys.stdout.write('{0} is dirty:\n'.format(path))
                 sys.stdout.write(repr_git_info(git_info))
                 for detail, target in matches.iteritems():
-                    sys.stdout.write('\t{0}: {1}\n'.format(detail, target))
+                    sys.stdout.write('  {0}:\n\t{1}\n'.format(detail, target))
 
 
 if __name__ == '__main__':
