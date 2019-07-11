@@ -86,7 +86,7 @@ def main():
     try:
         argparser = argparse.ArgumentParser()
         argparser.add_argument('directory', help='Path to a git repository')
-        argparser.add_argument('--behind', default=False, help='Check if repository is behind origin')
+        argparser.add_argument('--behind', action='store_true', default=False, help='Check if repository is behind origin')
         args =argparser.parse_args()
         path = args.directory
         if not is_git_repository(path):
@@ -102,10 +102,10 @@ def main():
     except OSError:
         err_out("Couldn't cd to directory")
 
-    arguments = {'args': shlex.split('git status -b --porcelain'),
+    popen_arguments = {'args': shlex.split('git status -b --porcelain'),
                  'stdout': subprocess.PIPE,
                  'stderr': subprocess.PIPE}
-    git_st_proc = subprocess.Popen(**arguments)
+    git_st_proc = subprocess.Popen(**popen_arguments)
     git_output = git_st_proc.stdout.read()
     return_code = git_st_proc.wait()
     if return_code != 0:
