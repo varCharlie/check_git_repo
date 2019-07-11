@@ -8,7 +8,7 @@ cat >&2 <<-EOF
 			-r --repo	Repository to search for
 			-d --dir	Base directory for search
 		EOF
-    exit $1
+    exit ${1:-0}
 }
 
 if [ $# -eq 0 ]; then
